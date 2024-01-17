@@ -1,0 +1,43 @@
+#!/bin/bash
+#SBATCH -n 1
+#SBATCH --partition=pool1
+#SBATCH --job-name=est_h2
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=3G
+#SBATCH --error=h2_logs/run_h2_%A_%a.txt
+#SBATCH --output=h2_logs/run_h2_%A_%a.txt
+#SBATCH --array=2-20
+
+
+# adapted from BaDoi's 
+# /projects/pfenninggroup/machineLearningForComputationalBiology/snATAC_cross_species_caudate/code/final_code/ldsc_gwas/compute_h2_snp_heritability.sh
+# figures:
+# /projects/pfenninggroup/machineLearningForComputationalBiology/snATAC_cross_species_caudate/figures/explanatory/ldsc_gwas
+
+
+# set paths and activate ldsc env
+RESOURCE_DIR=/home/mleone2/resources
+SETDIR=/projects/pfenninggroup/singleCell/Macaque_SealDorsalHorn_snATAC-seq
+GWASDIR=/projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/gwas/deepika_pain_gwas
+SNPLIST=${RESOURCE_DIR}/listHM3.noMHC.txt
+cd $SETDIR; source activate ldsc
+
+# for SLURM_ARRAY_TASK_ID in {1..67}; do
+# get the GWAS and reference population
+GWAS=$(awk -F '\t' -v IND=${SLURM_ARRAY_TASK_ID} 'NR==(IND + 1) {print $1}' ${GWASDIR}/pain_gwas_list.txt)
+POP='EUR'
+tmp=${GWAS%%.sumstats*}
+GWAS_Label=$(basename ${tmp})
+OUTDIR=${SETDIR}/data/tidy_data/gwas_enrichments_mouse/chronicpain_heritability; mkdir -p $OUTDIR
+
+#####################################
+# run compute h2 SNP heritability
+if [[ ! -f ${OUTDIR}/${GWAS_Label}.EUR.log ]]; then
+ldsc.py --h2 $GWAS \
+--ref-ld-chr ${RESOURCE_DIR}/1000G_ALL_Phase3_hg38_files/weights/1000G.EUR.weights.hm3_noMHC. \
+--w-ld-chr ${RESOURCE_DIR}/1000G_ALL_Phase3_hg38_files/weights/1000G.EUR.weights.hm3_noMHC.  \
+--out ${OUTDIR}/${GWAS_Label}
+fi
+# done
+

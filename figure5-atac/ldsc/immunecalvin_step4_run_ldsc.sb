@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH -n 1
+#SBATCH --partition=pool1
+#SBATCH --job-name=ldsc_immunecalvin
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=10G
+#SBATCH --error=step4_output/run_enrich_immunecalvin_%A_%a.txt
+#SBATCH --output=step4_output/run_enrich_immunecalvin_%A_%a.txt
+#SBATCH --array=1-20
+
+EnrichmentsDir='/projects/pfenninggroup/singleCell/Macaque_SealDorsalHorn_snATAC-seq/data/tidy_data/gwas_enrichments_immunecalvin/'
+
+path_to_gwas_list="/projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/gwas/deepika_pain_gwas/pain_gwas_list.txt"
+
+# get the GWAS for this array job
+GWAS=$(awk "NR==${SLURM_ARRAY_TASK_ID}" ${path_to_gwas_list})
+
+GWAS_Label=$(basename $GWAS | sed 's/.sumstats.gz//g')
+OUTDIR=${EnrichmentsDir}"enrichments"
+if [ ! -d "$OUTDIR" ]; then
+  mkdir "$OUTDIR"
+  echo "made $OUTDIR"
+fi
+
+echo "getting enrichments for ${GWAS_Label}"
+
+# run LD score regression to get tissue enrichments
+ldsc.py \
+  --ref-ld-chr /projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/1000G_EUR_Phase3_GRCh38_files/baseline_v1.2/baseline. \
+  --w-ld-chr /projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/1000G_EUR_Phase3_GRCh38_files/weights/weights.hm3_noMHC. \
+  --ref-ld-chr-cts ${EnrichmentsDir}"ldsc.ldcts" \
+  --h2-cts $GWAS \
+  --out $OUTDIR/${GWAS_Label} \
+  --n-blocks 1000
+
